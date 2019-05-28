@@ -115,7 +115,7 @@ func handleCommand(s *discordgo.Session, m *discordgo.MessageCreate) {
 				log.Println(err)
 
 				// Create user entry
-				stmt, err = db.Prepare("INSERT INTO user (dcid, uname, createts) VALUES (?, ?, strftime('%s', 'now'));")
+				stmt, err = db.Prepare("INSERT INTO user (dcid, uname, createts) VALUES (?, ?, strftime('%s', 'now', 'localtime'));")
 				if err != nil {
 					log.Fatal(err)
 				}
@@ -169,7 +169,7 @@ func handleCommand(s *discordgo.Session, m *discordgo.MessageCreate) {
 			log.Println("pid:", pid)
 
 			// New up relationship entry
-			stmt, err = db.Prepare("INSERT INTO user_problem (uid, pid, ts) VALUES (?, ?, strftime('%s', 'now'));")
+			stmt, err = db.Prepare("INSERT INTO user_problem (uid, pid, ts) VALUES (?, ?, strftime('%s', 'now', 'localtime'));")
 			if err != nil {
 				log.Fatal(err)
 			}
@@ -199,7 +199,7 @@ func handleCommand(s *discordgo.Session, m *discordgo.MessageCreate) {
 			log.Println("pid:", pid)
 
 			// New up relationship entry
-			stmt, err = db.Prepare("INSERT INTO user_problem (uid, pid, ts, note) VALUES (?, ?, strftime('%s', 'now'), ?);")
+			stmt, err = db.Prepare("INSERT INTO user_problem (uid, pid, ts, note) VALUES (?, ?, strftime('%s', 'now', 'localtime'), ?);")
 			if err != nil {
 				log.Fatal(err)
 			}
@@ -227,9 +227,9 @@ func handleCommand(s *discordgo.Session, m *discordgo.MessageCreate) {
 		var buf bytes.Buffer
 
 		if len(shw) == 2 {
-			qry = "select pname from user u, user_problem up, problem p where u.uname = ? and u.uid = up.uid and p.pid = up.pid;"
+			qry = "SELECT pname FROM user u, user_problem up, problem p WHERE u.uname = ? AND u.uid = up.uid AND p.pid = up.pid AND up.ts > (SELECT strftime('%s', 'now', 'localtime', 'start of day'));"
 		} else if len(shw) == 3 && shw[2] == "-a" {
-			qry = "select pname from user u, user_problem up, problem p where u.uname = ? and u.uid = up.uid and p.pid = up.pid and up.ts > (select strftime('%s', 'now', 'start of day'));"
+			qry = "SELECT pname FROM user u, user_problem up, problem p WHERE u.uname = ? AND u.uid = up.uid AND p.pid = up.pid;"
 		}
 
 		// Query corresponding problem names
