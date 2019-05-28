@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"database/sql"
 	"github.com/bwmarrin/discordgo"
 	_ "github.com/mattn/go-sqlite3"
@@ -52,7 +53,7 @@ func init() {
 
 func dbInit() {
 	// Create User table
-	stmt, _ = db.Prepare("CREATE TABLE IF NOT EXISTS user (uid INTEGER PRIMARY KEY, dcid TEXT, fname TEXT, lname TEXT, createts DATETIME);")
+	stmt, _ = db.Prepare("CREATE TABLE IF NOT EXISTS user (uid INTEGER PRIMARY KEY, dcid TEXT, uname TEXT, fname TEXT, lname TEXT, createts DATETIME);")
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -83,6 +84,7 @@ func dbInit() {
 
 	// select datetime(1559017037, 'unixepoch', 'localtime');
 	// select strftime('%s', 'now');
+	// select strftime('%s', 'now', 'start of day');
 }
 
 func handleCommand(s *discordgo.Session, m *discordgo.MessageCreate) {
@@ -113,11 +115,11 @@ func handleCommand(s *discordgo.Session, m *discordgo.MessageCreate) {
 				log.Println(err)
 
 				// Create user entry
-				stmt, err = db.Prepare("INSERT INTO user (dcid, createts) VALUES (?, strftime('%s', 'now'));")
+				stmt, err = db.Prepare("INSERT INTO user (dcid, uname, createts) VALUES (?, ?, strftime('%s', 'now'));")
 				if err != nil {
 					log.Fatal(err)
 				}
-				_, err = stmt.Exec(user.ID)
+				_, err = stmt.Exec(user.ID, user.Username)
 				if err != nil {
 					log.Fatal(err)
 				}
@@ -214,6 +216,52 @@ func handleCommand(s *discordgo.Session, m *discordgo.MessageCreate) {
 		}
 
 		log.Println("solve reply:", reply.Content)
+	} else if matched, err := regexp.MatchString(`^!show .+( -a)?$`, content); matched && err == nil {
+		log.Println("from show")
+
+		shw := strings.SplitN(content, " ", 3)
+		uname := shw[1]
+
+		var rows *sql.Rows
+		var pname, qry string
+		var buf bytes.Buffer
+
+		if len(shw) == 2 {
+			qry = "select pname from user u, user_problem up, problem p where u.uname = ? and u.uid = up.uid and p.pid = up.pid;"
+		} else if len(shw) == 3 && shw[2] == "-a" {
+			qry = "select pname from user u, user_problem up, problem p where u.uname = ? and u.uid = up.uid and p.pid = up.pid and up.ts > (select strftime('%s', 'now', 'start of day'));"
+		}
+
+		// Query corresponding problem names
+		rows, err = db.Query(qry, uname)
+		if err != nil {
+			log.Fatal(err)
+		}
+		for rows.Next() {
+			if err = rows.Scan(&pname); err != nil {
+				log.Fatal(err)
+			}
+			buf.WriteString(pname)
+			buf.WriteString("  ")
+		}
+
+		// Username not existed in db
+		if len(buf.String()) == 0 {
+			reply, err := s.ChannelMessageSend(m.ChannelID, "Name not found")
+			if err != nil {
+				log.Panic(err)
+			}
+
+			log.Println("show reply:", reply.Content)
+
+		} else {
+			reply, err := s.ChannelMessageSend(m.ChannelID, buf.String())
+			if err != nil {
+				log.Panic(err)
+			}
+
+			log.Println("show reply:", reply.Content)
+		}
 	}
 }
 
