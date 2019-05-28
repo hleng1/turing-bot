@@ -27,4 +27,8 @@ TODO:
 !help <pname>
 !today
 !libraryhours
+
+e.g. !solved LintCode18
+     !solved LeetCode200 -m "This is a comment"
+     !show Richard -a
 ```
