@@ -52,7 +52,7 @@ func init() {
 
 func dbInit() {
 	// Create User table
-	stmt, _ = db.Prepare("CREATE TABLE IF NOT EXISTS user (uid INTEGER PRIMARY KEY, dcid TEXT, fname TEXT, lname TEXT);")
+	stmt, _ = db.Prepare("CREATE TABLE IF NOT EXISTS user (uid INTEGER PRIMARY KEY, dcid TEXT, fname TEXT, lname TEXT, createts DATETIME);")
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -80,6 +80,9 @@ func dbInit() {
 	if err != nil {
 		log.Fatal(err)
 	}
+
+	// select datetime(1559017037, 'unixepoch', 'localtime');
+	// select strftime('%s', 'now');
 }
 
 func handleCommand(s *discordgo.Session, m *discordgo.MessageCreate) {
@@ -110,7 +113,7 @@ func handleCommand(s *discordgo.Session, m *discordgo.MessageCreate) {
 				log.Println(err)
 
 				// Create user entry
-				stmt, err = db.Prepare("INSERT INTO user (dcid) VALUES (?);")
+				stmt, err = db.Prepare("INSERT INTO user (dcid, createts) VALUES (?, strftime('%s', 'now'));")
 				if err != nil {
 					log.Fatal(err)
 				}
@@ -121,7 +124,7 @@ func handleCommand(s *discordgo.Session, m *discordgo.MessageCreate) {
 				log.Println("user created")
 
 				// Extract again
-				row := db.QueryRow("SELECT uid FROM user WHERE dcid=?", user.ID)
+				row = db.QueryRow("SELECT uid FROM user WHERE dcid=?", user.ID)
 				err = row.Scan(&uid)
 				if err != nil {
 					log.Fatal(err)
@@ -130,12 +133,17 @@ func handleCommand(s *discordgo.Session, m *discordgo.MessageCreate) {
 			}
 			// Save to um
 			um[user.ID] = uid
+			log.Println("saved", uid)
 
 		} else {
 			log.Println("from um")
 		}
 
-		log.Println("uid:", uid)
+		uid = um[user.ID]
+
+		if uid == 0 {
+			log.Fatal("uid cannot be 0")
+		}
 
 		if len(slv) == 2 {
 			log.Println("solve parsed:", "pname", pname)
@@ -159,7 +167,7 @@ func handleCommand(s *discordgo.Session, m *discordgo.MessageCreate) {
 			log.Println("pid:", pid)
 
 			// New up relationship entry
-			stmt, err = db.Prepare("INSERT INTO user_problem (uid, pid, ts) VALUES (?, ?, DATETIME('NOW'));")
+			stmt, err = db.Prepare("INSERT INTO user_problem (uid, pid, ts) VALUES (?, ?, strftime('%s', 'now'));")
 			if err != nil {
 				log.Fatal(err)
 			}
@@ -189,7 +197,7 @@ func handleCommand(s *discordgo.Session, m *discordgo.MessageCreate) {
 			log.Println("pid:", pid)
 
 			// New up relationship entry
-			stmt, err = db.Prepare("INSERT INTO user_problem (uid, pid, ts, note) VALUES (?, ?, DATETIME('NOW'), ?);")
+			stmt, err = db.Prepare("INSERT INTO user_problem (uid, pid, ts, note) VALUES (?, ?, strftime('%s', 'now'), ?);")
 			if err != nil {
 				log.Fatal(err)
 			}
@@ -207,10 +215,6 @@ func handleCommand(s *discordgo.Session, m *discordgo.MessageCreate) {
 
 		log.Println("solve reply:", reply.Content)
 	}
-	// else if matched, err := regexp.MatchString(`^!create [a-zA-Z]+ [a-zA-Z]+$`, content); matched && err == nil {
-
-	// }
-
 }
 
 func main() {
