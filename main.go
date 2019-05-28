@@ -20,12 +20,18 @@ var (
 	err      error
 	stmt     *sql.Stmt
 	logFile  *os.File
+	um       map[string]int // user discord id: uid in user table
+	pm       map[string]int // problem name: pid in problem table
 )
 
 func init() {
 	token = "Bot NTgxOTkxNjkwODA2NjI0MjY3.XOsnkQ.CBvABPtPgErY7aEcdDbH8xSaUuE"
 	logPath = "turing.log"
 	dbSource = "./test.db"
+
+	// Initialize map
+	um = make(map[string]int)
+	pm = make(map[string]int)
 
 	// Log configurations
 	logFile, err = os.OpenFile(logPath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
@@ -74,14 +80,6 @@ func dbInit() {
 	if err != nil {
 		log.Fatal(err)
 	}
-
-	// Insert
-	// stmt, err = db.Prepare("INSERT INTO user (dcid, fname, lname) VALUES (?, ?, ?)")
-	// _, err = stmt.Exec("honpray", "Hanbing", "Leng")
-	// if err != nil {
-	//     log.Fatal(err)
-	// }
-
 }
 
 func handleCommand(s *discordgo.Session, m *discordgo.MessageCreate) {
@@ -98,11 +96,45 @@ func handleCommand(s *discordgo.Session, m *discordgo.MessageCreate) {
 		pname := slv[1]
 
 		var uid, pid int
-		row := db.QueryRow("SELECT uid FROM user WHERE dcid=?", user.ID)
-		err = row.Scan(&uid)
-		if err != nil {
-			log.Fatal(err)
+		var row *sql.Row
+
+		// Search from um first
+		if uid, ok := um[user.ID]; !ok {
+			log.Println("uid not found in um")
+			// Extract uid from database
+			row = db.QueryRow("SELECT uid FROM user WHERE dcid=?", user.ID)
+			err = row.Scan(&uid)
+
+			// If not found, create new user entry and save to um
+			if err == sql.ErrNoRows {
+				log.Println(err)
+
+				// Create user entry
+				stmt, err = db.Prepare("INSERT INTO user (dcid) VALUES (?);")
+				if err != nil {
+					log.Fatal(err)
+				}
+				_, err = stmt.Exec(user.ID)
+				if err != nil {
+					log.Fatal(err)
+				}
+				log.Println("user created")
+
+				// Extract again
+				row := db.QueryRow("SELECT uid FROM user WHERE dcid=?", user.ID)
+				err = row.Scan(&uid)
+				if err != nil {
+					log.Fatal(err)
+				}
+				log.Println("get uid from db:", uid)
+			}
+			// Save to um
+			um[user.ID] = uid
+
+		} else {
+			log.Println("from um")
 		}
+
 		log.Println("uid:", uid)
 
 		if len(slv) == 2 {
@@ -172,6 +204,7 @@ func handleCommand(s *discordgo.Session, m *discordgo.MessageCreate) {
 		if err != nil {
 			log.Panic(err)
 		}
+
 		log.Println("solve reply:", reply.Content)
 	}
 	// else if matched, err := regexp.MatchString(`^!create [a-zA-Z]+ [a-zA-Z]+$`, content); matched && err == nil {
