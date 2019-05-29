@@ -26,7 +26,10 @@ var (
 )
 
 func init() {
-	token = "Bot NTgxOTkxNjkwODA2NjI0MjY3.XOsnkQ.CBvABPtPgErY7aEcdDbH8xSaUuE"
+	token = os.Getenv("DG_TOKEN")
+	if token == "" {
+		log.Fatal("No env variable DG_TOKEN found.")
+	}
 	logPath = "turing.log"
 	dbSource = "./test.db"
 
@@ -53,7 +56,7 @@ func init() {
 
 func dbInit() {
 	// Create User table
-	stmt, _ = db.Prepare("CREATE TABLE IF NOT EXISTS user (uid INTEGER PRIMARY KEY, dcid TEXT, uname TEXT, fname TEXT, lname TEXT, createts DATETIME);")
+	stmt, err = db.Prepare("CREATE TABLE IF NOT EXISTS user (uid INTEGER PRIMARY KEY, dcid TEXT, uname TEXT, fname TEXT, lname TEXT, createts DATETIME);")
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -73,7 +76,7 @@ func dbInit() {
 	}
 
 	// Create relationship table
-	stmt, _ = db.Prepare("CREATE TABLE IF NOT EXISTS user_problem (upid INTEGER PRIMARY KEY, uid INTEGER, pid INTEGER, ts DATETIME, note TEXT);")
+	stmt, err = db.Prepare("CREATE TABLE IF NOT EXISTS user_problem (upid INTEGER PRIMARY KEY, uid INTEGER, pid INTEGER, ts DATETIME, note TEXT);")
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -96,7 +99,7 @@ func handleCommand(s *discordgo.Session, m *discordgo.MessageCreate) {
 		}
 		log.Printf("test @%v: %v", user.Username, content)
 		log.Println("test reply:", reply.Content)
-	} else if matched, err := regexp.MatchString(`^!solved [A-Z]+[0-9]+( -m ".+")?$`, content); matched && err == nil {
+	} else if matched, err := regexp.MatchString(`^!solved [a-zA-Z]+[0-9]+( -m ".+")?$`, content); matched && err == nil {
 		slv := strings.SplitN(content, " ", 4)
 		pname := slv[1]
 
