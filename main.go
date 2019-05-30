@@ -93,13 +93,17 @@ func dbInit() {
 func handleCommand(s *discordgo.Session, m *discordgo.MessageCreate) {
 	user, content := m.Author, m.Content
 	if content == "!test" {
-		reply, err := s.ChannelMessageSend(m.ChannelID, "Test received!")
+		em := &discordgo.MessageEmbed{
+			Description: "embed test",
+		}
+		reply, err := s.ChannelMessageSendEmbed(m.ChannelID, em)
+		// reply, err := s.ChannelMessageSend(m.ChannelID, "Test received!")
 		if err != nil {
 			log.Panic(err)
 		}
 		log.Printf("test @%v: %v", user.Username, content)
 		log.Println("test reply:", reply.Content)
-	} else if matched, err := regexp.MatchString(`^!solved [a-zA-Z]+[0-9]+( -m ".+")?$`, content); matched && err == nil {
+	} else if matched, err := regexp.MatchString(`^!solved [a-zA-Z]+[0-9]+(\.)?([0-9])?( -m ".+")?$`, content); matched && err == nil {
 		slv := strings.SplitN(content, " ", 4)
 		pname := slv[1]
 
